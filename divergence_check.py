@@ -13,9 +13,9 @@ from talib import abstract
 
 
 class Divergence_test():
-    def __init__(self):   
+    def __init__(self,n=20):   
         self.df = pd.DataFrame()
-        
+        self.monitor_days = n
         
     def get_data(self,ticker):
         #取得資料和RSI,要先整理成Talib接受的小寫格式...
@@ -30,7 +30,7 @@ class Divergence_test():
         self.df['OBV'] = abstract.OBV(self.df)
         self.df['short_ma'] = self.df['close'].rolling(window=5).mean()
         self.df['mid_ma'] = self.df['close'].rolling(window=10).mean()
-        self.df['long_ma'] = self.df['close'].rolling(window=20).mean()
+        self.df['long_ma'] = self.df['close'].rolling(window=self.monitor_days).mean()
         self.df.dropna(inplace=True)              #drop掉nan的部分
         
         #因為是RSI，所以把收盤價以外的drop掉
@@ -102,6 +102,7 @@ class Divergence_test():
             self.df_analysis = pd.DataFrame(index=self.df_analysis.index,
                                             data=data,
                                            columns=self.df_analysis.columns)
+    def result(self):
         #結果檢驗
         test_list = ['RSI_check','OBV_check','both_check']
         
@@ -110,28 +111,30 @@ class Divergence_test():
             self.df_check = self.df_check.dropna(how='all')
         
             divergence = 0
-            count_diver = []
-            count_switch = []
+            count_diver = np.array([])
+            count_switch = np.array([])
             for i in range(self.df_check.shape[0]):
                 if not np.isnan(self.df_check.iloc[i,0]) and divergence == 0:
                     divergence = 1
-                    count_diver.append(self.df_check.iloc[i].name )
+                    count_diver = np.append(count_diver,self.df_check.iloc[i].name)
                 if divergence == 1 and self.df_check.iloc[i,1] == 1:
                     divergence = 0
-                    count_switch.append(self.df_check.iloc[i].name) 
-            result = []
+                    count_switch = np.append(count_switch,self.df_check.iloc[i].name) 
+                    
+            result = np.array([])
             for i in range(len(count_diver)):
                 diff = count_switch[i]-count_diver[i]
-                result.append(diff.days)
-            result = np.array(result)
+                result = np.append(result,diff.days)
+            
             print('Type: ',x)
-            print('mean: ',round(result.mean(),2),'days')
-            print('std : ',round(result.std(),2),'days')
-            print('-'*80)   
+            print('mean: ',round(result[result<self.monitor_days].mean(),2),'days')
+            print('std : ',round(result[result<self.monitor_days].std(),2),'days')
+            print('-'*80) 
+    
 
 
 if __name__ == '__main__':
    d = Divergence_test()
    d.get_data('^TWII')
    d.analysis()
-   
+   d.result()
